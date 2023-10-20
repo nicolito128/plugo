@@ -42,7 +42,8 @@ var _ Router = &Plug{}
 
 // Router is an HTTP request handler
 type Router interface {
-	http.Handler
+	// ServeHTTP dispatches the request to the handler whose pattern most closely matches the request URL.
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
 	// Handle registers a new handler to serve http requests in the provided method.
 	Handle(method MethodID, pattern string, handler http.Handler)
 	// HandleFunc registers a new handler function to serve http requests in the provided method.
@@ -84,15 +85,15 @@ func NewPlug(opts ...PlugOption) *Plug {
 }
 
 // ServeHTTP dispatches the request to the handler whose pattern most closely matches the request URL.
-func (p *Plug) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (p *Plug) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.RequestURI == "*" {
-		p.mux.ServeHTTP(rw, r)
+		p.mux.ServeHTTP(w, r)
 		return
 	}
 
 	// to handle responses and request
 	ctx := newContext(r)
-	conn := NewConnection(ctx, rw, r)
+	conn := NewConnection(ctx, w, r)
 
 	route, staticOk := p.namedRoutes[cleanPath(r.URL.Path)]
 	if staticOk {
