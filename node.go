@@ -28,7 +28,7 @@ type node struct {
 	// parametric nodes
 	params *node
 
-	// slice with all the nodes
+	// slice with static and regexp nodes
 	children []*node
 
 	// slice of regexp node

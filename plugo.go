@@ -11,7 +11,7 @@ import (
 // ErrorHandler represents a handler to catch when an error occurs in an HTTP request.
 type ErrorHandler func(*http.Request, error)
 
-// PlugOptions represents a handler for setting Plug parameters.
+// PlugOption represents a handler for setting Plug configurable parameters.
 type PlugOption func(*Plug)
 
 // Plug is an HTTP router.
@@ -43,7 +43,6 @@ var _ Router = &Plug{}
 // Router is an HTTP request handler
 type Router interface {
 	http.Handler
-
 	// Handle registers a new handler to serve http requests in the provided method.
 	Handle(method MethodID, pattern string, handler http.Handler)
 	// HandleFunc registers a new handler function to serve http requests in the provided method.
