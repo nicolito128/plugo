@@ -3,7 +3,7 @@ Adaptable and minimalistic HTTP router for building Go backend applications.
 
 # Quick start
 
-Require `go 1.18+` or higher.
+Require `go 1.18` or higher.
 
 ## Installation
 
