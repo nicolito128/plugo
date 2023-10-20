@@ -6,6 +6,7 @@ import "net/http"
 type Context interface {
 	// URLParams gets the value of all the parameters in the URL.
 	URLParams() []string
+
 	// Param searches for a specific parameter value.
 	Param(key string) (value string, ok bool)
 }

@@ -22,6 +22,9 @@ type node struct {
 	// slice with the parameter keys
 	paramList []string
 
+	// slice of middlewares to execute after a request
+	middlewares []MiddlewareFunc
+
 	// parent node
 	parent *node
 
@@ -95,6 +98,10 @@ func (nd *node) bind(mid MethodID, pattern string, handler HandlerFunc) {
 	}
 
 	nd.isHandler = true
+}
+
+func (nd *node) use(middlewares ...MiddlewareFunc) {
+	nd.middlewares = append(nd.middlewares, middlewares...)
 }
 
 func (nd *node) attach(label string) *node {

@@ -51,7 +51,11 @@ type connectionImpl struct {
 var _ Connection = &connectionImpl{}
 
 func NewConnection(ctx Context, w http.ResponseWriter, req *http.Request) *connectionImpl {
-	return &connectionImpl{ctx, NewResponse(w), req}
+	return &connectionImpl{
+		ctx:      ctx,
+		response: NewResponse(w),
+		request:  req,
+	}
 }
 
 func (conn *connectionImpl) Context() Context {
