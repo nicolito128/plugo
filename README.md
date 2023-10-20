@@ -1,15 +1,14 @@
 # Plugo
 Adaptable and minimalistic HTTP router for building Go backend applications.
 
-# Quick start
-
+## Quick start
 Require `go 1.18` or higher.
 
-## Installation
+### Installation
 
     go get github.com/nicolito128/plugo
 
-## Example
+### Example
 
 ```go
 package main
