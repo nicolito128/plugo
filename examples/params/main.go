@@ -19,11 +19,7 @@ func main() {
 }
 
 func users(conn plugo.Connection) error {
-	var id string
-	if len(conn.URLParams()) > 0 {
-		id = conn.URLParams()[0]
-	}
-
+	id, _ := conn.Param("id")
 	return conn.String(http.StatusOK, fmt.Sprintf("ID: %s", id))
 }
 

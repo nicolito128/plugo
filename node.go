@@ -19,6 +19,9 @@ type node struct {
 	// http handler endpoints
 	endpoints endpoints
 
+	// slice with the parameter keys
+	paramList []string
+
 	// parent node
 	parent *node
 
@@ -76,6 +79,7 @@ func newNode(pattern string) *node {
 		label:     pattern,
 		rex:       exp,
 		endpoints: make(endpoints),
+		paramList: make([]string, 0),
 		catchAll:  nil,
 		params:    nil,
 		children:  make([]*node, 0),
@@ -88,7 +92,6 @@ func (nd *node) bind(mid MethodID, pattern string, handler HandlerFunc) {
 	nd.endpoints[mid] = &endpoint{
 		handler,
 		pattern,
-		parseParamKeysFromPattern(pattern),
 	}
 
 	nd.isHandler = true
@@ -110,13 +113,17 @@ func (nd *node) attach(label string) *node {
 		nd.children = append(nd.children, newElement)
 
 	case nodeParam:
+		// save param key
+		newElement.paramList = append(newElement.paramList, parseParamKeysFromPattern(label)...)
+		// clear for generic parameter
 		newElement.label = ":"
+
+		// saves the data of the previous node before overwriting it
 		if nd.params != nil {
 			newElement.children = append(newElement.children, nd.children...)
 			newElement.matchers = append(newElement.matchers, nd.matchers...)
 			newElement.statics = append(newElement.statics, nd.statics...)
 			newElement.catchAll = nd.catchAll
-
 			newElement.endpoints = nd.endpoints
 		}
 
@@ -129,6 +136,7 @@ func (nd *node) attach(label string) *node {
 	return newElement
 }
 
+// match checks for matches on static and regexp nodes.
 func (nd *node) match(exp string) bool {
 	switch nd.kind {
 	case nodeStatic:
@@ -191,9 +199,11 @@ func (nd *node) updateRouteContext(ctx *contextImpl) {
 			if len(moves) >= ctx.depth {
 				value := moves[ctx.depth-1]
 				if value != "" {
-					ctx.params = append(ctx.params, value)
+					ctx.valueParams = append(ctx.valueParams, value)
 				}
 			}
+
+			ctx.keyParams = append(ctx.keyParams, nd.paramList...)
 		}
 	}
 }
@@ -215,8 +225,13 @@ func parseStringToNodeType(s string) nodeType {
 }
 
 func parseParamKeysFromPattern(pattern string) []string {
-	paramsMatcher := regexp.MustCompile(`/(:[a-zA-Z])\w+/g`)
-	maxLen := len(strings.Split(pattern, "/")[1:])
+	paramsMatcher := regexp.MustCompile(`(:[a-zA-Z0-9])\w+`)
+	moves := strings.Split(pattern, "/")
+	if strings.HasSuffix(pattern, "/") {
+		moves = moves[1:]
+	}
+
+	maxLen := len(moves)
 
 	// Removing ":" from keys
 	result := paramsMatcher.FindAllString(pattern, maxLen)

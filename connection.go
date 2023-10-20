@@ -23,6 +23,9 @@ type Connection interface {
 	// Call to Connection#Context().URLParams method
 	URLParams() []string
 
+	// Call to Connection#Context().Param method
+	Param(key string) (value string, ok bool)
+
 	// Send a new response in HTML format
 	HTML(code int, data string) error
 
@@ -69,6 +72,10 @@ func (conn *connectionImpl) URL() *url.URL {
 
 func (conn *connectionImpl) URLParams() []string {
 	return conn.ctx.URLParams()
+}
+
+func (conn *connectionImpl) Param(key string) (value string, ok bool) {
+	return conn.ctx.Param(key)
 }
 
 func (conn *connectionImpl) HTML(code int, data string) error {

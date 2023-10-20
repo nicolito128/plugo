@@ -7,9 +7,8 @@ type HandlerFunc func(conn Connection) error
 type endpoints map[MethodID]*endpoint
 
 type endpoint struct {
-	handler   HandlerFunc
-	pattern   string
-	paramKeys []string
+	handler HandlerFunc
+	pattern string
 }
 
 func (e endpoints) Value(method MethodID) *endpoint {
