@@ -40,12 +40,19 @@ type Connection interface {
 
 	// Send a new response in any desired Content-Type
 	Blob(code int, contentType string, b []byte) error
+
+	// Done stops the connection
+	Done()
+
+	// Closed checks if the connection was finished
+	Closed() bool
 }
 
 type connectionImpl struct {
 	ctx      Context
 	response *Response
 	request  *http.Request
+	closed   bool
 }
 
 var _ Connection = &connectionImpl{}
@@ -112,6 +119,14 @@ func (c *connectionImpl) Blob(code int, contentType string, b []byte) (err error
 	_, err = c.response.Write(b)
 
 	return
+}
+
+func (c *connectionImpl) Done() {
+	c.closed = true
+}
+
+func (c *connectionImpl) Closed() bool {
+	return c.closed
 }
 
 func (conn *connectionImpl) writeContentType(value string) {

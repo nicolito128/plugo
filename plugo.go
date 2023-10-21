@@ -1,7 +1,6 @@
 package plugo
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"path"
@@ -39,6 +38,9 @@ type Plug struct {
 
 	// error handler for http requests
 	CatchError ErrorHandler
+
+	// error handler for internal errors (middlewares)
+	InternalError ErrorHandler
 
 	// 404 not found handler
 	NotFound HandlerFunc
@@ -119,28 +121,44 @@ func (p *Plug) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(r)
 	conn := NewConnection(ctx, w, r)
 
+	var err error
+
 	// ensure execution at the end
 	defer func() {
-		if len(p.afterMiddlewares) > 0 {
-			p.CatchError(conn, p.handleMiddlewares(conn, p.afterMiddlewares...))
+		err = p.handleMiddlewares(conn, p.afterMiddlewares...)
+		if err != nil {
+			p.InternalError(conn, err)
+			return
 		}
 	}()
 
 	// handling before middlewares
-	if len(p.beforeMiddlewares) > 0 {
-		p.CatchError(conn, p.handleMiddlewares(conn, p.beforeMiddlewares...))
+	err = p.handleMiddlewares(conn, p.beforeMiddlewares...)
+	if err != nil {
+		p.InternalError(conn, err)
+		return
 	}
 
 	// handling the current request
 	route, h := p.handleRequest(ctx, r)
 
 	if route != nil {
-		if len(route.middlewares) > 0 {
-			p.CatchError(conn, p.handleMiddlewares(conn, route.middlewares...))
+		err = p.handleMiddlewares(conn, route.middlewares...)
+		if err != nil {
+			p.InternalError(conn, err)
+			return
 		}
 	}
 
-	p.CatchError(conn, h(conn))
+	if conn.Closed() {
+		return
+	}
+
+	err = h(conn)
+	if err != nil {
+		p.CatchError(conn, err)
+		return
+	}
 }
 
 // Handle registers a new handler to serve http requests in the provided method.
@@ -298,6 +316,10 @@ func (p *Plug) handleRequest(ctx *contextImpl, r *http.Request) (*node, HandlerF
 }
 
 func (p *Plug) handleMiddlewares(conn Connection, middlewares ...MiddlewareFunc) error {
+	if conn.Closed() {
+		return nil
+	}
+
 	var err error
 	for i := range middlewares {
 		handler := middlewares[i]()
@@ -322,17 +344,29 @@ func DefaultPlugOptions(p *Plug) {
 
 	p.CatchError = defaultCatchErrorHandler
 
+	p.InternalError = defaultInternalErrorHandler
+
 	p.NotFound = defaultNotFoundHandler
 
 	p.MethodNotAllowed = defaultMethodNotAllowedHandler
 }
 
 func defaultCatchErrorHandler(conn Connection, err error) {
-	if err != nil {
-		r := conn.Request()
-		log.Println(fmt.Sprintf("ERROR! / Method: %s / Status: %s / URI: %s", r.Method, r.Response.Status, r.RequestURI))
-		log.Println(err)
+	if err == nil {
+		return
 	}
+
+	r := conn.Request()
+	log.Printf("ERROR! / Method: %s / Status: %s / URI: %s\n", r.Method, r.Response.Status, r.RequestURI)
+	log.Println(err)
+}
+
+func defaultInternalErrorHandler(conn Connection, err error) {
+	if err == nil {
+		return
+	}
+
+	conn.String(http.StatusInternalServerError, "Internal server error.")
 }
 
 func defaultNotFoundHandler(conn Connection) error {
