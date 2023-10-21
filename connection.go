@@ -110,15 +110,18 @@ func (conn *connectionImpl) JSONBlob(code int, b []byte) error {
 	return conn.Blob(code, "application/json", b)
 }
 
-func (c *connectionImpl) Blob(code int, contentType string, b []byte) (err error) {
+func (c *connectionImpl) Blob(code int, contentType string, b []byte) error {
+	if c.closed {
+		return nil
+	}
+
 	c.writeContentType(contentType)
 	if code != http.StatusOK {
 		c.response.WriteHeader(code)
 	}
 
-	_, err = c.response.Write(b)
-
-	return
+	_, err := c.response.Write(b)
+	return err
 }
 
 func (c *connectionImpl) Done() {
