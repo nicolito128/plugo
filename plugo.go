@@ -76,8 +76,8 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rt.handleMiddlewares(w, r, rt.beforeMiddlewares...)
 
 	// handling the current request
-	route, handler := rt.handleRequest(r)
-	if route != nil {
+	route, endp, handler := rt.handleRequest(r)
+	if route != nil && endp != nil {
 		rt.handleMiddlewares(w, r, route.middlewares...)
 
 		plug, ok := handler.(Plugger)
@@ -85,12 +85,9 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			r = r.WithContext(context.WithValue(context.Background(), MethodID("pattern"), plug.Pattern()))
 		}
 
-		handler.ServeHTTP(w, r)
-
-		return
 	}
 
-	rt.config.NotFound.ServeHTTP(w, r)
+	handler.ServeHTTP(w, r)
 }
 
 // Pre adds a set of middlewares to be executed before a request.
@@ -195,15 +192,15 @@ func (rt *Router) HandleFunc(method MethodID, pattern string, handler http.Handl
 	rt.Handle(method, pattern, NewPlug(pattern, handler))
 }
 
-func (rt *Router) handleRequest(r *http.Request) (*node, http.Handler) {
+func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler) {
 	route, staticOk := rt.namedRoutes[cleanPath(r.URL.Path)]
 	if staticOk {
 		ent := route.endpoints.Value(MethodID(r.Method))
 		if ent == nil {
-			return route, rt.config.MethodNotAllowed
+			return nil, nil, rt.config.MethodNotAllowed
 		}
 
-		return route, ent.handler
+		return route, ent, ent.handler
 	}
 
 	// steps to search a determinate path
@@ -218,20 +215,21 @@ func (rt *Router) handleRequest(r *http.Request) (*node, http.Handler) {
 
 	if root != nil {
 		ent := root.endpoints.Value(MethodID(r.Method))
-		if ent == nil {
-			if root.catchAll != nil {
-				ent = root.catchAll.endpoints.Value(MethodID(r.Method))
-			}
-
-			if ent == nil {
-				return root, rt.config.MethodNotAllowed
-			}
+		if ent != nil {
+			return root, ent, ent.handler
 		}
 
-		return root, ent.handler
+		if root.catchAll != nil {
+			ent = root.catchAll.endpoints.Value(MethodID(r.Method))
+			if ent != nil {
+				return root, ent, ent.handler
+			} else {
+				return nil, nil, rt.config.MethodNotAllowed
+			}
+		}
 	}
 
-	return nil, rt.config.NotFound
+	return nil, nil, rt.config.NotFound
 }
 
 func (rt *Router) handleMiddlewares(w http.ResponseWriter, r *http.Request, middlewares ...MiddlewareFunc) {
