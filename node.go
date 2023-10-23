@@ -1,9 +1,12 @@
 package plugo
 
 import (
+	"net/http"
 	"regexp"
-	"strings"
 )
+
+// MidlewareFunc represents a function that is executed before or after an http request.
+type MiddlewareFunc func() http.HandlerFunc
 
 // node represents a single route node of the tree.
 type node struct {
@@ -18,9 +21,6 @@ type node struct {
 
 	// http handler endpoints
 	endpoints endpoints
-
-	// slice with the parameter keys
-	paramList []string
 
 	// slice of middlewares to execute after a request
 	middlewares []MiddlewareFunc
@@ -82,7 +82,6 @@ func newNode(pattern string) *node {
 		label:     pattern,
 		rex:       exp,
 		endpoints: make(endpoints),
-		paramList: make([]string, 0),
 		catchAll:  nil,
 		params:    nil,
 		children:  make([]*node, 0),
@@ -91,7 +90,7 @@ func newNode(pattern string) *node {
 	}
 }
 
-func (nd *node) bind(mid MethodID, pattern string, handler HandlerFunc) {
+func (nd *node) bind(mid MethodID, pattern string, handler http.Handler) {
 	nd.endpoints[mid] = &endpoint{
 		handler,
 		pattern,
@@ -120,8 +119,6 @@ func (nd *node) attach(label string) *node {
 		nd.children = append(nd.children, newElement)
 
 	case nodeParam:
-		// save param key
-		newElement.paramList = append(newElement.paramList, parseParamKeysFromPattern(label)...)
 		// clear for generic parameter
 		newElement.label = ":"
 
@@ -163,10 +160,9 @@ func (nd *node) match(exp string) bool {
 	return false
 }
 
-func (nd *node) findRoute(ctx *contextImpl, search string) *node {
+func (nd *node) findRoute(search string) *node {
 	ok := nd.match(search)
 	if ok {
-		nd.updateRouteContext(ctx)
 		return nd
 	}
 
@@ -174,77 +170,18 @@ func (nd *node) findRoute(ctx *contextImpl, search string) *node {
 		for _, child := range nd.children {
 			ok = child.match(search)
 			if ok {
-				child.updateRouteContext(ctx)
 				return child
 			}
 		}
 	}
 
 	if nd.params != nil {
-		nd.params.updateRouteContext(ctx)
 		return nd.params
 	}
 
 	if nd.catchAll != nil {
-		nd.catchAll.updateRouteContext(ctx)
 		return nd.catchAll
 	}
 
 	return nil
-}
-
-func (nd *node) updateRouteContext(ctx *contextImpl) {
-	if ctx != nil {
-		ctx.depth += 1
-
-		if nd.kind == nodeParam {
-			moves := strings.Split(ctx.path, "/")
-			if strings.HasSuffix(ctx.path, "/") {
-				moves = moves[:len(moves)-1]
-			}
-
-			if len(moves) >= ctx.depth {
-				value := moves[ctx.depth-1]
-				if value != "" {
-					ctx.valueParams = append(ctx.valueParams, value)
-				}
-			}
-
-			ctx.keyParams = append(ctx.keyParams, nd.paramList...)
-		}
-	}
-}
-
-func parseStringToNodeType(s string) nodeType {
-	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
-		return nodeRegexp
-	}
-
-	if strings.HasPrefix(s, ":") {
-		return nodeParam
-	}
-
-	if strings.HasSuffix(s, "*") {
-		return nodeCatchAll
-	}
-
-	return nodeStatic
-}
-
-func parseParamKeysFromPattern(pattern string) []string {
-	paramsMatcher := regexp.MustCompile(`(:[a-zA-Z0-9])\w+`)
-	moves := strings.Split(pattern, "/")
-	if strings.HasSuffix(pattern, "/") {
-		moves = moves[1:]
-	}
-
-	maxLen := len(moves)
-
-	// Removing ":" from keys
-	result := paramsMatcher.FindAllString(pattern, maxLen)
-	for i := range result {
-		result[i] = strings.Replace(result[i], ":", "", 1)
-	}
-
-	return result
 }

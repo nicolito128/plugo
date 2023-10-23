@@ -1,8 +1,8 @@
 # Plugo
-Adaptable and minimalistic HTTP router for building Go backend applications.
+Composable and minimalistic HTTP router for building Go backend applications inspired by [Plug](https://hex.pm/packages/plug).
 
 ## Quick start
-Require `go 1.18` or higher.
+Require `go 1.21.0` or higher.
 
 ### Installation
 
@@ -26,11 +26,14 @@ func main() {
 
 	router.Get("/", hello_world)
 
-	fmt.Println("Server running at http://localhost:8080 - Press CTRL+C to exit")
+	fmt.Println("Server running at http://localhost:8080/ - Press CTRL+C to exit")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-func hello_world(conn plugo.Connection) error {
-	return conn.String(http.StatusOK, "Hello, Plugo World!")
+func hello_world(w http.ResponseWriter, r *http.Request) {
+	conn := plugo.NewConnection(w, r)
+
+	conn.String(http.StatusOK, "Hello, Plugo World!")
 }
+
 ```

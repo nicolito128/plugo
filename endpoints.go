@@ -1,5 +1,7 @@
 package plugo
 
+import "net/http"
+
 // HandlerFunc type to handle http request
 type HandlerFunc func(conn Connection) error
 
@@ -7,7 +9,7 @@ type HandlerFunc func(conn Connection) error
 type endpoints map[MethodID]*endpoint
 
 type endpoint struct {
-	handler HandlerFunc
+	handler http.Handler
 	pattern string
 }
 

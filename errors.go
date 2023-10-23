@@ -1,6 +1,8 @@
 package plugo
 
-import "errors"
+import (
+	"errors"
+)
 
 var ErrMethodNotAllowed = errors.New("method not allowed for http request")
 

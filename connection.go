@@ -2,71 +2,69 @@ package plugo
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Connection is a user-friendly interface to perform http responses
 type Connection interface {
-	// Request context utilities
-	Context() Context
-
-	// HTTP Request getter
+	// HTTP hRequest getter
 	Request() *http.Request
 
 	// HTTP Response getter
 	Response() *Response
 
-	// Getter for http.Request.URL
+	// URL getter for http.Request.URL()
 	URL() *url.URL
 
-	// Call to Connection#Context().URLParams method
-	URLParams() []string
+	// PathParams gets an slice of parameter values if they exists in the url
+	PathParams() []string
 
-	// Call to Connection#Context().Param method
+	// Param gets the value of a parameter if it exists in the url
 	Param(key string) (value string, ok bool)
 
-	// Send a new response in HTML format
+	// HTML sends a new response in HTML format
 	HTML(code int, data string) error
 
-	// Send a new response in plain text format
-	String(code int, data string) error
+	// String sends a new response in plain text format
+	String(code int, data string, args ...any) error
 
-	// Send a new response in JSON format automatically decoding the parameter 'data'
+	// JSON sends a new response in JSON format automatically decoding the parameter 'data'
 	JSON(code int, data any) error
 
-	// Send a new response in JSON format
+	// JSONBlob sends a new response in JSON format
 	JSONBlob(code int, b []byte) error
 
-	// Send a new response in any desired Content-Type
+	// Blob sends a new response in any desired content-type
 	Blob(code int, contentType string, b []byte) error
-
-	// Done stops the connection
-	Done()
-
-	// Closed checks if the connection was finished
-	Closed() bool
 }
 
 type connectionImpl struct {
-	ctx      Context
 	response *Response
 	request  *http.Request
-	closed   bool
+	pattern  string
+	path     string
+	params   []string
 }
 
 var _ Connection = &connectionImpl{}
 
-func NewConnection(ctx Context, w http.ResponseWriter, req *http.Request) *connectionImpl {
+func newConnection(w http.ResponseWriter, r *http.Request) *connectionImpl {
+	pattern := r.Context().Value(MethodID("pattern")).(string)
+
 	return &connectionImpl{
-		ctx:      ctx,
 		response: NewResponse(w),
-		request:  req,
+		request:  r,
+		pattern:  pattern,
+		path:     cleanPath(r.URL.Path),
+		params:   parseParamKeysFromPattern(pattern),
 	}
 }
 
-func (conn *connectionImpl) Context() Context {
-	return conn.ctx
+func NewConnection(w http.ResponseWriter, r *http.Request) Connection {
+	return newConnection(w, r)
 }
 
 func (conn *connectionImpl) Request() *http.Request {
@@ -81,20 +79,51 @@ func (conn *connectionImpl) URL() *url.URL {
 	return conn.request.URL
 }
 
-func (conn *connectionImpl) URLParams() []string {
-	return conn.ctx.URLParams()
+func (conn *connectionImpl) PathParams() []string {
+	res := make([]string, 0)
+
+	for _, key := range conn.params {
+		pattMoves := strings.Split(strings.Split(conn.pattern, ":"+key)[0], "/")
+		if strings.HasSuffix(conn.pattern, "/") {
+			pattMoves = pattMoves[:len(pattMoves)-1]
+		}
+
+		depth := len(pattMoves) - 1
+
+		moves := strings.Split(conn.path, "/")
+		if strings.HasSuffix(conn.path, "/") {
+			moves = moves[:len(moves)-1]
+		}
+
+		if len(moves) >= depth {
+			res = append(res, moves[depth])
+		}
+	}
+
+	return res
 }
 
 func (conn *connectionImpl) Param(key string) (value string, ok bool) {
-	return conn.ctx.Param(key)
+	values := conn.PathParams()
+
+	for i, param := range conn.params {
+		if param == key {
+			value = values[i]
+			ok = true
+
+			return
+		}
+	}
+
+	return
 }
 
 func (conn *connectionImpl) HTML(code int, data string) error {
 	return conn.Blob(code, "text/html", []byte(data))
 }
 
-func (conn *connectionImpl) String(code int, data string) error {
-	return conn.Blob(code, "text/plain", []byte(data))
+func (conn *connectionImpl) String(code int, data string, args ...any) error {
+	return conn.Blob(code, "text/plain", []byte(fmt.Sprintf(data, args...)))
 }
 
 func (conn *connectionImpl) JSON(code int, data any) error {
@@ -111,10 +140,6 @@ func (conn *connectionImpl) JSONBlob(code int, b []byte) error {
 }
 
 func (c *connectionImpl) Blob(code int, contentType string, b []byte) error {
-	if c.closed {
-		return nil
-	}
-
 	c.writeContentType(contentType)
 	if code != http.StatusOK {
 		c.response.WriteHeader(code)
@@ -122,14 +147,6 @@ func (c *connectionImpl) Blob(code int, contentType string, b []byte) error {
 
 	_, err := c.response.Write(b)
 	return err
-}
-
-func (c *connectionImpl) Done() {
-	c.closed = true
-}
-
-func (c *connectionImpl) Closed() bool {
-	return c.closed
 }
 
 func (conn *connectionImpl) writeContentType(value string) {
