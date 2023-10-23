@@ -33,7 +33,9 @@ func main() {
 func hello_world(w http.ResponseWriter, r *http.Request) {
 	conn := plugo.NewConnection(w, r)
 
-	conn.String(http.StatusOK, "Hello, Plugo World!")
+	if err := conn.String(http.StatusOK, "Hello, Plugo World!"); err != nil {
+		panic(err)
+	}
 }
 
 ```
