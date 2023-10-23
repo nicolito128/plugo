@@ -113,11 +113,6 @@ func NewPlug(opts ...PlugOption) *Plug {
 
 // ServeHTTP dispatches the request to the handler whose pattern most closely matches the request URL.
 func (p *Plug) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.RequestURI == "*" {
-		p.mux.ServeHTTP(w, r)
-		return
-	}
-
 	ctx := newContext(r)
 	conn := NewConnection(ctx, w, r)
 
