@@ -13,9 +13,9 @@ type Plug struct {
 var _ Plugger = &Plug{}
 
 type Plugger interface {
-	ServeHTTP(http.ResponseWriter, *http.Request)
+	http.Handler
+
 	Pattern() string
-	Unwrap() *Plug
 }
 
 func NewPlug(pattern string, serve http.HandlerFunc) *Plug {
@@ -28,8 +28,4 @@ func (p *Plug) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (p *Plug) Pattern() string {
 	return p.pattern
-}
-
-func (p *Plug) Unwrap() *Plug {
-	return p
 }
