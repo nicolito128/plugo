@@ -23,8 +23,8 @@ type Router struct {
 	// slice of middlewares to execute after a request
 	afterMiddlewares []MiddlewareFunc
 
-	// configurable public fields
-	config *RouterConfig
+	// public fields to configurate
+	*RouterConfig
 }
 
 // New creates a new Router pointer with a default set of options
@@ -45,7 +45,7 @@ func NewRouter(opts ...RouterOption) *Router {
 		namedRoutes:       make(map[string]*node),
 		beforeMiddlewares: make([]MiddlewareFunc, 0),
 		afterMiddlewares:  make([]MiddlewareFunc, 0),
-		config:            config,
+		RouterConfig:      config,
 	}
 
 	return router
@@ -146,10 +146,10 @@ func (rt *Router) Handle(method MethodID, pattern string, handler http.Handler, 
 		panic(ErrMethodNotAllowed)
 	}
 
-	if strings.HasSuffix(rt.config.IndexPath, "/") {
-		pattern = rt.config.IndexPath[0:len(rt.config.IndexPath)-1] + pattern
+	if strings.HasSuffix(rt.IndexPath, "/") {
+		pattern = rt.IndexPath[0:len(rt.IndexPath)-1] + pattern
 	} else {
-		pattern = rt.config.IndexPath + pattern
+		pattern = rt.IndexPath + pattern
 	}
 
 	var isStatic bool = true
@@ -197,7 +197,7 @@ func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler
 	if staticOk {
 		ent := route.endpoints.Value(MethodID(r.Method))
 		if ent == nil {
-			return nil, nil, rt.config.MethodNotAllowed
+			return nil, nil, rt.MethodNotAllowed
 		}
 
 		return route, ent, ent.handler
@@ -224,12 +224,12 @@ func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler
 			if ent != nil {
 				return root, ent, ent.handler
 			} else {
-				return nil, nil, rt.config.MethodNotAllowed
+				return nil, nil, rt.MethodNotAllowed
 			}
 		}
 	}
 
-	return nil, nil, rt.config.NotFound
+	return nil, nil, rt.NotFound
 }
 
 func (rt *Router) handleMiddlewares(w http.ResponseWriter, r *http.Request, middlewares ...MiddlewareFunc) {
@@ -244,7 +244,7 @@ func (rt *Router) handleMiddlewares(w http.ResponseWriter, r *http.Request, midd
 func (rt *Router) parsePatternToMovements(pattern string) []string {
 	var moves = make([]string, 0)
 
-	if rt.config.SlashStrictly {
+	if rt.SlashStrictly {
 		moves = strings.SplitAfter(pattern, "/")
 	} else {
 		moves = strings.Split(pattern, "/")
