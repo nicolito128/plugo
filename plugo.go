@@ -77,14 +77,12 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// handling the current request
 	route, endp, handler := rt.handleRequest(r)
-	if route != nil && endp != nil {
+	if route != nil {
 		rt.handleMiddlewares(w, r, route.middlewares...)
 
-		plug, ok := handler.(Plugger)
-		if ok {
-			r = r.WithContext(context.WithValue(context.Background(), MethodID("pattern"), plug.Pattern()))
+		if endp != nil {
+			r = r.WithContext(context.WithValue(context.Background(), MethodID("pattern"), endp.pattern))
 		}
-
 	}
 
 	handler.ServeHTTP(w, r)
