@@ -231,10 +231,14 @@ func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler
 }
 
 func (rt *Router) handleMiddlewares(w http.ResponseWriter, r *http.Request, middlewares ...MiddlewareFunc) {
-	for i := range middlewares {
-		handler := middlewares[i]()
+	if len(middlewares) > 0 {
+		for i := 0; i < len(middlewares); i++ {
+			handler := middlewares[i]()
+			if handler != nil {
+				handler(w, r)
+			}
+		}
 
-		handler(w, r)
 	}
 }
 
