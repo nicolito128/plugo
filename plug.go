@@ -7,14 +7,12 @@ import (
 // Plug represents a handler for an specific route
 type Plug struct {
 	serve http.HandlerFunc
-
-	pattern string
 }
 
 var _ http.Handler = &Plug{}
 
-func NewPlug(pattern string, serve http.HandlerFunc) *Plug {
-	return &Plug{serve, pattern}
+func NewPlug(serve http.HandlerFunc) *Plug {
+	return &Plug{serve}
 }
 
 func (p *Plug) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -177,7 +177,7 @@ func (rt *Router) Handle(method MethodID, pattern string, handler http.Handler, 
 		}
 	}
 
-	root.bind(method, pattern, NewPlug(pattern, handler.ServeHTTP))
+	root.bind(method, pattern, NewPlug(handler.ServeHTTP))
 	root.use(middlewares...)
 
 	if isStatic {
@@ -187,7 +187,7 @@ func (rt *Router) Handle(method MethodID, pattern string, handler http.Handler, 
 
 // HandleFunc registers a new handler function to serve http requests in the provided method.
 func (rt *Router) HandleFunc(method MethodID, pattern string, handler http.HandlerFunc, middlewares ...MiddlewareFunc) {
-	rt.Handle(method, pattern, NewPlug(pattern, handler))
+	rt.Handle(method, pattern, NewPlug(handler))
 }
 
 func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler) {
