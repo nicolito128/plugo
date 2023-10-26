@@ -81,7 +81,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler.ServeHTTP(w, r)
 }
 
-// Use adds a set of middlewares to be executed after a request.
+// Use adds a set of middlewares to be executed before a request.
 func (rt *Router) Use(middlewares ...MiddlewareFunc) {
 	rt.middlewares = append(rt.middlewares, middlewares...)
 }
