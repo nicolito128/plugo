@@ -1,30 +1,10 @@
 package plugo
 
 import (
-	"net/http"
 	"path"
 	"regexp"
 	"strings"
 )
-
-// Default plug for MethodNotAllowed http response
-type methodNotAllowedPlug struct {
-	*Plug
-}
-
-func (mna *methodNotAllowedPlug) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(405)
-	w.Write([]byte("Method not allowed."))
-}
-
-// Default plug for NotFound http response
-type notFoundPlug struct {
-	*Plug
-}
-
-func (nf *notFoundPlug) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.NotFound(w, r)
-}
 
 func cleanPath(p string) string {
 	if p == "" {

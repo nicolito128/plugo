@@ -17,11 +17,8 @@ type Router struct {
 	// static nodes
 	namedRoutes map[string]*node
 
-	// slice of middlewares to execute before a request
-	beforeMiddlewares []MiddlewareFunc
-
 	// slice of middlewares to execute after a request
-	afterMiddlewares []MiddlewareFunc
+	middlewares []MiddlewareFunc
 
 	// public fields to configurate
 	*RouterConfig
@@ -41,11 +38,10 @@ func NewRouter(opts ...RouterOption) *Router {
 	}
 
 	router := &Router{
-		routes:            newNode(config.IndexPath),
-		namedRoutes:       make(map[string]*node),
-		beforeMiddlewares: make([]MiddlewareFunc, 0),
-		afterMiddlewares:  make([]MiddlewareFunc, 0),
-		RouterConfig:      config,
+		routes:       newNode(config.IndexPath),
+		namedRoutes:  make(map[string]*node),
+		middlewares:  make([]MiddlewareFunc, 0),
+		RouterConfig: config,
 	}
 
 	return router
@@ -60,42 +56,34 @@ type RouterConfig struct {
 	SlashStrictly bool
 
 	// 404 not found handler
-	NotFound http.Handler
+	NotFound http.HandlerFunc
 
 	// 405 method not allowed handler
-	MethodNotAllowed http.Handler
+	MethodNotAllowed http.HandlerFunc
 }
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// ensure execution at the end
-	defer func() {
-		rt.handleMiddlewares(w, r, rt.afterMiddlewares...)
-	}()
-
-	// handling before middlewares
-	rt.handleMiddlewares(w, r, rt.beforeMiddlewares...)
-
 	// handling the current request
-	route, endp, handler := rt.handleRequest(r)
+	route, endp, handler := rt.findRequestRoute(r)
 	if route != nil {
-		rt.handleMiddlewares(w, r, route.middlewares...)
-
 		if endp != nil {
 			r = r.WithContext(context.WithValue(context.Background(), MethodID("pattern"), endp.pattern))
+		}
+
+		var middlewareFail error
+
+		rt.handleMiddlewares(w, r, &middlewareFail, route.middlewares...)
+		if middlewareFail != nil {
+			return
 		}
 	}
 
 	handler.ServeHTTP(w, r)
 }
 
-// Pre adds a set of middlewares to be executed before a request.
-func (rt *Router) Pre(middlewares ...MiddlewareFunc) {
-	rt.beforeMiddlewares = append(rt.beforeMiddlewares, middlewares...)
-}
-
 // Use adds a set of middlewares to be executed after a request.
 func (rt *Router) Use(middlewares ...MiddlewareFunc) {
-	rt.afterMiddlewares = append(rt.beforeMiddlewares, middlewares...)
+	rt.middlewares = append(rt.middlewares, middlewares...)
 }
 
 // Get registers a new HTTP GET method handler.
@@ -190,12 +178,12 @@ func (rt *Router) HandleFunc(method MethodID, pattern string, handler http.Handl
 	rt.Handle(method, pattern, NewPlug(handler))
 }
 
-func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler) {
+func (rt *Router) findRequestRoute(r *http.Request) (*node, *endpoint, http.Handler) {
 	route, staticOk := rt.namedRoutes[cleanPath(r.URL.Path)]
 	if staticOk {
 		ent := route.endpoints.Value(MethodID(r.Method))
 		if ent == nil {
-			return nil, nil, rt.MethodNotAllowed
+			return nil, nil, NewPlug(rt.MethodNotAllowed)
 		}
 
 		return route, ent, ent.handler
@@ -222,23 +210,24 @@ func (rt *Router) handleRequest(r *http.Request) (*node, *endpoint, http.Handler
 			if ent != nil {
 				return root, ent, ent.handler
 			} else {
-				return nil, nil, rt.MethodNotAllowed
+				return nil, nil, NewPlug(rt.MethodNotAllowed)
 			}
 		}
 	}
 
-	return nil, nil, rt.NotFound
+	return nil, nil, NewPlug(rt.NotFound)
 }
 
-func (rt *Router) handleMiddlewares(w http.ResponseWriter, r *http.Request, middlewares ...MiddlewareFunc) {
-	if len(middlewares) > 0 {
-		for i := 0; i < len(middlewares); i++ {
-			handler := middlewares[i]()
-			if handler != nil {
-				handler(w, r)
-			}
-		}
+func (rt *Router) handleMiddlewares(w http.ResponseWriter, r *http.Request, fail *error, middlewares ...MiddlewareFunc) {
+	handlers := make([]MiddlewareFunc, 0)
+	handlers = append(handlers, rt.middlewares...)
+	handlers = append(handlers, middlewares...)
 
+	for _, handler := range handlers {
+		handler(fail)(w, r)
+		if *fail != nil {
+			break
+		}
 	}
 }
 
@@ -266,7 +255,16 @@ func DefaultRouterOptions(rt *RouterConfig) {
 
 	rt.SlashStrictly = false
 
-	rt.NotFound = &notFoundPlug{}
+	rt.NotFound = defaultNotFound
 
-	rt.MethodNotAllowed = &methodNotAllowedPlug{}
+	rt.MethodNotAllowed = defaultMethodNotAllowed
+}
+
+func defaultMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(405)
+	w.Write([]byte("Method not allowed."))
+}
+
+func defaultNotFound(w http.ResponseWriter, r *http.Request) {
+	http.NotFound(w, r)
 }

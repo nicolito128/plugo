@@ -22,7 +22,7 @@ func main() {
 }
 
 // logger middleware
-func logger() http.HandlerFunc {
+func logger(fail *error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf(
 			"Logger :: %s |> METHOD: %s |> PATH: %s |> HOST: %s \n",

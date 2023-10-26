@@ -6,7 +6,7 @@ import (
 )
 
 // MidlewareFunc represents a function that is executed before or after an http request.
-type MiddlewareFunc func() http.HandlerFunc
+type MiddlewareFunc func(*error) http.HandlerFunc
 
 // node represents a single route node of the tree.
 type node struct {
