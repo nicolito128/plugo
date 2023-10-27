@@ -161,7 +161,7 @@ func (rt *Router) Handle(method MethodID, pattern string, handler http.Handler, 
 			root = aux
 		} else {
 			// if it does not exist, then create it in the current root
-			root = root.attach(move)
+			root = root.insertNode(move)
 		}
 	}
 

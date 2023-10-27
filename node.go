@@ -103,7 +103,7 @@ func (nd *node) use(middlewares ...MiddlewareFunc) {
 	nd.middlewares = append(nd.middlewares, middlewares...)
 }
 
-func (nd *node) attach(label string) *node {
+func (nd *node) insertNode(label string) *node {
 	newElement := newNode(label)
 	newElement.isLeaf = true
 	newElement.parent = nd
